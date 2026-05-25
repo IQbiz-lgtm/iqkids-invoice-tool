@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>委託費明細作成ツール｜IQキッズグループ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a; --border:#2e3350;
+    --accent:#4f8ef7; --green:#3ecf8e; --yellow:#f5c842;
+    --text:#e8eaf6; --text2:#8b90b8; --text3:#555a7e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;font-size:14px;}
+
+  .garden-selector{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:200;flex-wrap:wrap;}
+  .logo{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.08em;white-space:nowrap;}
+  .garden-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+  .garden-tab{background:none;border:1px solid var(--border);color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:11px;padding:5px 12px;cursor:pointer;border-radius:4px;transition:all .15s;white-space:nowrap;}
+  .garden-tab:hover{border-color:var(--accent);color:var(--accent);}
+  .garden-tab.active{background:var(--accent);border-color:var(--accent);color:white;}
+
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:15px;font-weight:500;}
+  .tag{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.3);padding:3px 10px;border-radius:4px;}
+
+  nav{display:flex;gap:2px;padding:0 32px;border-bottom:1px solid var(--border);background:var(--surface);}
+  nav button{background:none;border:none;color:var(--text2);font-family:'Noto Sans JP',sans-serif;font-size:13px;padding:10px 20px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+  nav button.active{color:var(--accent);border-bottom-color:var(--accent);}
+  nav button:hover:not(.active){color:var(--text);}
+
+  main{max-width:960px;margin:0 auto;padding:28px 32px;}
+  .page{display:none;} .page.active{display:block;}
+  .section-title{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px;margin-top:28px;}
+  .section-title:first-child{margin-top:0;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:14px;}
+  .warn-card{background:rgba(245,200,66,.05);border:1px solid rgba(245,200,66,.3);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--yellow);}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  .grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;}
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:11px;color:var(--text2);font-weight:500;}
+  .field input,.field select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;padding:9px 11px;width:100%;transition:border-color .15s;}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);}
+  .field input[readonly]{color:var(--text3);cursor:default;}
+  .field .hint{font-size:11px;color:var(--text3);}
+  hr.divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
+  .btn{background:var(--accent);color:white;border:none;border-radius:6px;padding:11px 22px;font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s;}
+  .btn:hover{opacity:.85;}
+  .btn-green{background:var(--green);color:#0f1117;}
+  .btn-outline{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:11px 22px;font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;}
+  .btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-row{display:flex;gap:10px;margin-top:20px;}
+  .fixed-badge{font-size:10px;background:rgba(79,142,247,.15);color:var(--accent);border:1px solid rgba(79,142,247,.3);border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle;}
+
+  /* 合計表示 */
+  .total-bar{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+  .total-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 20px;}
+  .total-card .label{font-size:11px;color:var(--text2);margin-bottom:6px;}
+  .total-card .amount{font-family:'DM Mono',monospace;font-size:28px;font-weight:500;color:var(--green);}
+  .total-card .sub{font-size:11px;color:var(--text3);margin-top:4px;}
+
+  /* 明細テーブル */
+  table.meisai{width:100%;border-collapse:collapse;font-size:13px;}
+  table.meisai th{background:var(--surface2);color:var(--text2);font-weight:500;font-size:11px;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
+  table.meisai td{padding:7px 12px;border-bottom:1px solid rgba(46,51,80,.5);}
+  table.meisai td:first-child{font-family:'Noto Sans JP',sans-serif;color:var(--text2);}
+  table.meisai td.num{font-family:'DM Mono',monospace;font-size:12px;text-align:right;}
+  table.meisai tr.subtotal td{background:rgba(255,255,255,.02);color:var(--text2);font-size:11px;}
+  table.meisai tr.total-row td{background:rgba(62,207,142,.08);font-weight:500;color:var(--text);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+  table.meisai tr.section td{background:var(--surface2);font-size:11px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;padding:5px 12px;}
+
+  .garden-page{display:none;} .garden-page.active{display:block;}
+  @media(max-width:680px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}.total-bar{grid-template-columns:1fr;}main{padding:16px;}.garden-selector{padding:10px 16px;}}
+</style>
+</head>
+<body>
+
+<div class="garden-selector">
+  <span class="logo">IQキッズグループ 委託費明細作成</span>
+  <div class="garden-tabs">
+    <button class="garden-tab active" onclick="switchGarden('sanri',this)">サンリー</button>
+    <button class="garden-tab" onclick="switchGarden('uto',this)">うとシティ</button>
+    <button class="garden-tab" onclick="switchGarden('angeria',this)">エンジェリア</button>
+    <button class="garden-tab" onclick="switchGarden('smylia',this)">スマイリア</button>
+    <button class="garden-tab" onclick="switchGarden('kumariha',this)">くまりは</button>
+    <button class="garden-tab" onclick="switchGarden('shinyashiki',this)">新屋敷</button>
+    <button class="garden-tab" onclick="switchGarden('oeno',this)">大江の森</button>
+    <button class="garden-tab" onclick="switchGarden('yuki',this)">ゆうき</button>
+    <button class="garden-tab" onclick="switchGarden('tsugumi',this)">つぐみ</button>
+    <button class="garden-tab" onclick="switchGarden('himawari',this)">ひまわり</button>
+  </div>
+</div>
+
+<!-- ==============================
+     サンリー
+============================== -->
+<div class="garden-page active" id="g-sanri">
+  <header><h1>IQキッズサンリー保育園　委託費明細作成</h1><span class="tag">株式会社カリーノ</span></header>
+  <nav>
+    <button class="active" onclick="showPage('sanri','input',this)">入力</button>
+    <button onclick="showPage('sanri','const',this)">固定値</button>
+  </nav>
+  <main>
+    <div class="page active" id="sanri-input">
+      <div class="warn-card">⚠ 法定福利費：正規17%・パート7%（混在）。管理者あり。処遇改善：前月確定分。請求3通→1請求書に統合</div>
+
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="sanri-invno" value="2026-05-005"></div>
+        <div class="field"><label>発行日</label><input type="date" id="sanri-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="sanri-due" value="2026-05-31"></div>
+        <div class="field"><label>対象月</label><select id="sanri-month">
+          <option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option>
+          <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+          <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+          <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+        </select></div>
+      </div></div>
+
+      <div class="section-title">基本情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>対象年</label><input type="number" id="sanri-year" value="2026"></div>
+        <div class="field"><label>平日・土 稼働日数</label><input type="number" id="sanri-weekdays" value="26" min="0"></div>
+        <div class="field"><label>日祝 稼働日数</label><input type="number" id="sanri-holidays" value="5" min="0"></div>
+        <div class="field"><label>正社員保育士（人数）</label><input type="number" id="sanri-seisya" value="4" min="0"></div>
+      </div></div>
+
+      <div class="section-title">人員・時間</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>事務員（h）</label><input type="number" id="sanri-jimu" value="171" step="0.5" min="0"></div>
+        <div class="field"><label>保育補助（h）</label><input type="number" id="sanri-hojo" value="0" step="0.5" min="0"></div>
+        <div class="field"><label>調理師パート（h）</label><input type="number" id="sanri-chouri" value="0" step="0.5" min="0"></div>
+        <div class="field"><label>看護師（1=あり）</label><input type="number" id="sanri-kango" value="1" min="0" max="1"></div>
+        <div class="field"><label>延長保育（h）</label><input type="number" id="sanri-enchou" value="0" step="0.1" min="0"></div>
+        <div class="field"><label>交通費（回）</label><input type="number" id="sanri-traffic" value="260" min="0"></div>
+      </div></div>
+
+      <div class="section-title">処遇改善加算（前月確定額）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>処遇改善Ⅰ（円）</label><input type="number" id="sanri-k1" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅱ（円）</label><input type="number" id="sanri-k2" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅲ（円）</label><input type="number" id="sanri-k3" value="0" min="0"></div>
+      </div></div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="calcSanri()">明細を作成</button>
+      </div>
+
+      <div id="sanri-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計</div><div class="amount" id="sanri-total-main">—</div><div class="sub">（人件費＋法定福利費＋運営費）</div></div>
+          <div class="total-card"><div class="label">処遇改善加算合計</div><div class="amount" id="sanri-total-kaizen">—</div><div class="sub">（前月確定分）</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="sanri-tbody"></tbody></table></div>
+        <div class="btn-row">
+          <button class="btn btn-green" onclick="downloadMF('sanri')">マネーフォワード用 Excelダウンロード</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="sanri-const">
+      <div class="section-title">固定値（サンリー）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>管理者単価<span class="fixed-badge">固定</span></label><input type="number" value="280000" readonly></div>
+        <div class="field"><label>正社員単価<span class="fixed-badge">固定</span></label><input type="number" value="220000" readonly></div>
+        <div class="field"><label>パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1100" readonly></div>
+        <div class="field"><label>看護師月額<span class="fixed-badge">固定</span></label><input type="number" value="220000" readonly></div>
+        <div class="field"><label>延長・追加単価<span class="fixed-badge">固定</span></label><input type="number" value="1375" readonly></div>
+        <div class="field"><label>交通費単価<span class="fixed-badge">固定</span></label><input type="number" value="500" readonly></div>
+        <div class="field"><label>法定福利費（正規）<span class="fixed-badge">固定</span></label><input value="17%" readonly></div>
+        <div class="field"><label>法定福利費（パート）<span class="fixed-badge">固定</span></label><input value="7%" readonly></div>
+        <div class="field"><label>運営費率<span class="fixed-badge">固定</span></label><input value="25%" readonly></div>
+        <div class="field"><label>日祝配置<span class="fixed-badge">固定</span></label><input value="11h×2名+2h=24h" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<!-- ==============================
+     うとシティ
+============================== -->
+<div class="garden-page" id="g-uto">
+  <header><h1>IQキッズうとティモール保育園　委託費明細作成</h1><span class="tag">株式会社カリーノ</span></header>
+  <nav><button class="active" onclick="showPage('uto','input',this)">入力</button><button onclick="showPage('uto','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="uto-input">
+      <div class="warn-card">⚠ 管理者請求停止中（0円）。法定福利費：正規17%・パート7%混在。処遇改善：前月確定分</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="uto-invno" value="2026-05-003"></div>
+        <div class="field"><label>発行日</label><input type="date" id="uto-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="uto-due" value="2026-05-20"></div>
+        <div class="field"><label>対象月</label><select id="uto-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">基本情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>対象年</label><input type="number" id="uto-year" value="2026"></div>
+        <div class="field"><label>平日・土 稼働日数</label><input type="number" id="uto-weekdays" value="26" min="0"></div>
+        <div class="field"><label>日祝 稼働日数</label><input type="number" id="uto-holidays" value="5" min="0"></div>
+        <div class="field"><label>正社員保育士（人数）</label><input type="number" id="uto-seisya" value="2" min="0"></div>
+      </div></div>
+      <div class="section-title">人員・時間</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>事務員（h）</label><input type="number" id="uto-jimu" value="162" step="0.5" min="0"></div>
+        <div class="field"><label>保育補助（h）</label><input type="number" id="uto-hojo" value="120" step="0.5" min="0"></div>
+        <div class="field"><label>調理師パート（h）</label><input type="number" id="uto-chouri" value="102.5" step="0.5" min="0"></div>
+        <div class="field"><label>延長・追加配置（h）</label><input type="number" id="uto-enchou" value="0" step="0.1" min="0"></div>
+        <div class="field"><label>交通費（回）</label><input type="number" id="uto-traffic" value="171" min="0"></div>
+      </div></div>
+      <div class="section-title">処遇改善加算（前月確定額）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>処遇改善Ⅰ（円）</label><input type="number" id="uto-k1" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅱ（円）</label><input type="number" id="uto-k2" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅲ（円）</label><input type="number" id="uto-k3" value="0" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcUto()">明細を作成</button></div>
+      <div id="uto-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計</div><div class="amount" id="uto-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善加算合計</div><div class="amount" id="uto-total-kaizen">—</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="uto-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('uto')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="uto-const">
+      <div class="section-title">固定値（うとシティ）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>管理者<span class="fixed-badge">請求停止</span></label><input value="0円（停止中）" readonly></div>
+        <div class="field"><label>正社員単価<span class="fixed-badge">固定</span></label><input type="number" value="220000" readonly></div>
+        <div class="field"><label>パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1100" readonly></div>
+        <div class="field"><label>法定福利費（正規）<span class="fixed-badge">固定</span></label><input value="17%" readonly></div>
+        <div class="field"><label>法定福利費（パート）<span class="fixed-badge">固定</span></label><input value="7%" readonly></div>
+        <div class="field"><label>運営費率<span class="fixed-badge">固定</span></label><input value="25%" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<!-- ==============================
+     エンジェリア
+============================== -->
+<div class="garden-page" id="g-angeria">
+  <header><h1>鶴屋保育園エンジェリア　委託費明細作成</h1><span class="tag">株式会社鶴屋百貨店</span></header>
+  <nav><button class="active" onclick="showPage('angeria','input',this)">入力</button><button onclick="showPage('angeria','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="angeria-input">
+      <div class="warn-card">⚠ 運営管理費30%（25%と混同注意）。法定福利費統一17%。処遇改善：当月見込＋前月確定の2段階</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="angeria-invno" value="2026-05-017"></div>
+        <div class="field"><label>発行日</label><input type="date" id="angeria-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="angeria-due" value="2026-05-20"></div>
+        <div class="field"><label>対象月</label><select id="angeria-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">基本情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>対象年</label><input type="number" id="angeria-year" value="2026"></div>
+        <div class="field"><label>月〜木 稼働日数</label><input type="number" id="angeria-weekdays" value="22" min="0"></div>
+        <div class="field"><label>金・土 稼働日数</label><input type="number" id="angeria-saturdays" value="8" min="0"></div>
+        <div class="field"><label>店休日 稼働日数</label><input type="number" id="angeria-holidays" value="5" min="0"></div>
+      </div></div>
+      <div class="section-title">人員・時間</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>正社員保育士（人数）</label><input type="number" id="angeria-seisya" value="6" min="0"></div>
+        <div class="field"><label>事務員（h）</label><input type="number" id="angeria-jimu" value="171" step="0.5" min="0"></div>
+        <div class="field"><label>保育補助（h）</label><input type="number" id="angeria-hojo" value="120" step="0.5" min="0"></div>
+        <div class="field"><label>障害児加算（h×1,500円）</label><input type="number" id="angeria-shogai" value="171" step="0.5" min="0"></div>
+        <div class="field"><label>延長・追加配置（h）</label><input type="number" id="angeria-enchou" value="0" step="0.1" min="0"></div>
+        <div class="field"><label>交通費（回）</label><input type="number" id="angeria-traffic" value="213" min="0"></div>
+        <div class="field"><label>配置補足調整（h、マイナス可）</label><input type="number" id="angeria-chosei" value="-960" step="1"></div>
+      </div></div>
+      <div class="section-title">処遇改善加算</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>処遇改善 区分1（円）</label><input type="number" id="angeria-k1" value="0" min="0"></div>
+        <div class="field"><label>処遇改善 区分2（円）</label><input type="number" id="angeria-k2" value="0" min="0"></div>
+        <div class="field"><label>処遇改善 区分3（円）</label><input type="number" id="angeria-k3" value="0" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcAngeria()">明細を作成</button></div>
+      <div id="angeria-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計</div><div class="amount" id="angeria-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善加算合計</div><div class="amount" id="angeria-total-kaizen">—</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="angeria-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('angeria')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="angeria-const">
+      <div class="section-title">固定値（エンジェリア）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>管理者単価<span class="fixed-badge">固定</span></label><input type="number" value="280000" readonly></div>
+        <div class="field"><label>正社員単価<span class="fixed-badge">固定</span></label><input type="number" value="240000" readonly></div>
+        <div class="field"><label>パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1200" readonly></div>
+        <div class="field"><label>障害児加算単価<span class="fixed-badge">固定</span></label><input type="number" value="1500" readonly></div>
+        <div class="field"><label>法定福利費（全員）<span class="fixed-badge">固定</span></label><input value="17%（統一）" readonly></div>
+        <div class="field"><label>運営管理費率<span class="fixed-badge">固定</span></label><input value="30%" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<!-- ==============================
+     スマイリア
+============================== -->
+<div class="garden-page" id="g-smylia">
+  <header><h1>鶴屋保育園スマイリア　委託費明細作成</h1><span class="tag">株式会社鶴屋百貨店</span></header>
+  <nav><button class="active" onclick="showPage('smylia','input',this)">入力</button><button onclick="showPage('smylia','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="smylia-input">
+      <div class="warn-card">⚠ 運営管理費30%。法定福利費統一17%。処遇改善支払期限が他より1ヶ月遅い（翌々月末）</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="smylia-invno" value="2026-05-020"></div>
+        <div class="field"><label>発行日</label><input type="date" id="smylia-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="smylia-due" value="2026-05-20"></div>
+        <div class="field"><label>対象月</label><select id="smylia-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">基本情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>対象年</label><input type="number" id="smylia-year" value="2026"></div>
+        <div class="field"><label>日〜木 稼働日数</label><input type="number" id="smylia-weekdays" value="25" min="0"></div>
+        <div class="field"><label>日祝 稼働日数</label><input type="number" id="smylia-holidays" value="5" min="0"></div>
+        <div class="field"><label>正社員保育士（人数）</label><input type="number" id="smylia-seisya" value="6" min="0"></div>
+      </div></div>
+      <div class="section-title">人員・時間</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>事務員（h）</label><input type="number" id="smylia-jimu" value="169.6" step="0.1" min="0"></div>
+        <div class="field"><label>延長・追加配置（h）</label><input type="number" id="smylia-enchou" value="0" step="0.1" min="0"></div>
+        <div class="field"><label>配置補足調整（h、マイナス可）</label><input type="number" id="smylia-chosei" value="-960" step="1"></div>
+        <div class="field"><label>交通費（回）</label><input type="number" id="smylia-traffic" value="251" min="0"></div>
+      </div></div>
+      <div class="section-title">処遇改善加算</div>
+      <div class="card"><div class="grid-2">
+        <div class="field"><label>処遇改善 区分1.2（円）</label><input type="number" id="smylia-k12" value="0" min="0"></div>
+        <div class="field"><label>処遇改善 区分3（円）</label><input type="number" id="smylia-k3" value="0" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcSmylia()">明細を作成</button></div>
+      <div id="smylia-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計</div><div class="amount" id="smylia-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善加算合計</div><div class="amount" id="smylia-total-kaizen">—</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="smylia-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('smylia')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="smylia-const">
+      <div class="section-title">固定値（スマイリア）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>管理者単価<span class="fixed-badge">固定</span></label><input type="number" value="280000" readonly></div>
+        <div class="field"><label>正社員単価<span class="fixed-badge">固定</span></label><input type="number" value="240000" readonly></div>
+        <div class="field"><label>パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1200" readonly></div>
+        <div class="field"><label>法定福利費（全員）<span class="fixed-badge">固定</span></label><input value="17%（統一）" readonly></div>
+        <div class="field"><label>運営管理費率<span class="fixed-badge">固定</span></label><input value="30%" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<!-- ==============================
+     くまりは
+============================== -->
+<div class="garden-page" id="g-kumariha">
+  <header><h1>くまりはキッズガーデン　委託費明細作成</h1><span class="tag">令和会 熊本リハビリテーション病院</span></header>
+  <nav><button class="active" onclick="showPage('kumariha','input',this)">入力</button><button onclick="showPage('kumariha','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="kumariha-input">
+      <div class="warn-card">⚠ 法定福利費15.5%。土曜1,210円・日祝1,512円で単価が異なる。総括表添付必要</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="kumariha-invno" value="2026-05-009"></div>
+        <div class="field"><label>発行日</label><input type="date" id="kumariha-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="kumariha-due" value="2026-05-31"></div>
+        <div class="field"><label>対象月</label><select id="kumariha-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">基本情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>対象年</label><input type="number" id="kumariha-year" value="2026"></div>
+        <div class="field"><label>平日 稼働日数</label><input type="number" id="kumariha-weekdays" value="21" min="0"></div>
+        <div class="field"><label>土曜 稼働日数</label><input type="number" id="kumariha-saturdays" value="4" min="0"></div>
+        <div class="field"><label>日祝 稼働日数</label><input type="number" id="kumariha-holidays" value="5" min="0"></div>
+      </div></div>
+      <div class="section-title">人員・時間</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>常勤上位（人数）265,000円</label><input type="number" id="kumariha-sei1" value="1" min="0"></div>
+        <div class="field"><label>常勤一般（人数）212,000円</label><input type="number" id="kumariha-sei2" value="2" min="0"></div>
+        <div class="field"><label>平日 常勤不足時間（h）</label><input type="number" id="kumariha-fusoku" value="276" step="0.5" min="0"></div>
+        <div class="field"><label>保育補助（h×1,210円）</label><input type="number" id="kumariha-hojo" value="120" step="0.5" min="0"></div>
+        <div class="field"><label>栄養士・調理師（h×1,210円）</label><input type="number" id="kumariha-chouri" value="0" step="0.5" min="0"></div>
+        <div class="field"><label>延長・追加（h×1,512円）</label><input type="number" id="kumariha-enchou" value="0" step="0.1" min="0"></div>
+        <div class="field"><label>夜間配置 日数（26h×1,512円）</label><input type="number" id="kumariha-yakan" value="0" min="0"></div>
+        <div class="field"><label>交通費（回）</label><input type="number" id="kumariha-traffic" value="172" min="0"></div>
+      </div></div>
+      <div class="section-title">処遇改善加算（前月見込額）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>処遇改善Ⅰ（円）</label><input type="number" id="kumariha-k1" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅱ（円）</label><input type="number" id="kumariha-k2" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅲ（円）</label><input type="number" id="kumariha-k3" value="0" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcKumariha()">明細を作成</button></div>
+      <div id="kumariha-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計</div><div class="amount" id="kumariha-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善加算合計</div><div class="amount" id="kumariha-total-kaizen">—</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="kumariha-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('kumariha')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="kumariha-const">
+      <div class="section-title">固定値（くまりは）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>管理者単価<span class="fixed-badge">固定</span></label><input type="number" value="296800" readonly></div>
+        <div class="field"><label>常勤上位単価<span class="fixed-badge">固定</span></label><input type="number" value="265000" readonly></div>
+        <div class="field"><label>常勤一般単価<span class="fixed-badge">固定</span></label><input type="number" value="212000" readonly></div>
+        <div class="field"><label>平日パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1210" readonly></div>
+        <div class="field"><label>日祝パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1512" readonly></div>
+        <div class="field"><label>法定福利費（全員）<span class="fixed-badge">固定</span></label><input value="15.5%" readonly></div>
+        <div class="field"><label>運営費率<span class="fixed-badge">固定</span></label><input value="25%" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<!-- ==============================
+     新屋敷・大江の森・ゆうき・つぐみ・ひまわり（構造は同様のため省略なく実装）
+============================== -->
+<div class="garden-page" id="g-shinyashiki">
+  <header><h1>新屋敷キッズガーデン　委託費明細作成</h1><span class="tag">令和会 熊本整形外科病院</span></header>
+  <nav><button class="active" onclick="showPage('shinyashiki','input',this)">入力</button><button onclick="showPage('shinyashiki','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="shinyashiki-input">
+      <div class="warn-card">⚠ 法定福利費15.5%。日祝1,416円（食洗2h追加）。総括表必須。リトミック22,000円（課税）別途</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="shinyashiki-invno" value="2026-05-011"></div>
+        <div class="field"><label>発行日</label><input type="date" id="shinyashiki-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="shinyashiki-due" value="2026-05-31"></div>
+        <div class="field"><label>対象月</label><select id="shinyashiki-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">基本情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>対象年</label><input type="number" id="shinyashiki-year" value="2026"></div>
+        <div class="field"><label>平日 稼働日数</label><input type="number" id="shinyashiki-weekdays" value="21" min="0"></div>
+        <div class="field"><label>土曜 稼働日数</label><input type="number" id="shinyashiki-saturdays" value="4" min="0"></div>
+        <div class="field"><label>日祝 稼働日数</label><input type="number" id="shinyashiki-holidays" value="5" min="0"></div>
+      </div></div>
+      <div class="section-title">人員・時間</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>常勤上位（人数）252,500円</label><input type="number" id="shinyashiki-sei1" value="1" min="0"></div>
+        <div class="field"><label>常勤一般（人数）204,000円</label><input type="number" id="shinyashiki-sei2" value="3" min="0"></div>
+        <div class="field"><label>事務員（人数×204,000）</label><input type="number" id="shinyashiki-jimu" value="1" min="0"></div>
+        <div class="field"><label>看護師（1=あり）224,400円</label><input type="number" id="shinyashiki-kango" value="0" min="0" max="1"></div>
+        <div class="field"><label>平日 常勤不足（h×1,133円）</label><input type="number" id="shinyashiki-fusoku" value="284" step="0.5" min="0"></div>
+        <div class="field"><label>保育補助（h×1,030円）</label><input type="number" id="shinyashiki-hojo" value="128" step="0.5" min="0"></div>
+        <div class="field"><label>栄養士・調理師（h×1,133円）</label><input type="number" id="shinyashiki-chouri" value="164.5" step="0.5" min="0"></div>
+        <div class="field"><label>延長・追加（h×1,416円）</label><input type="number" id="shinyashiki-enchou" value="0" step="0.1" min="0"></div>
+        <div class="field"><label>夜間配置 日数（2名×12h×1,416円）</label><input type="number" id="shinyashiki-yakan" value="0" min="0"></div>
+        <div class="field"><label>交通費（回）</label><input type="number" id="shinyashiki-traffic" value="180" min="0"></div>
+      </div></div>
+      <div class="section-title">処遇改善加算（前月見込額）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>処遇改善Ⅰ（円）</label><input type="number" id="shinyashiki-k1" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅱ（円）</label><input type="number" id="shinyashiki-k2" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅲ（円）</label><input type="number" id="shinyashiki-k3" value="0" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcShinyashiki()">明細を作成</button></div>
+      <div id="shinyashiki-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計</div><div class="amount" id="shinyashiki-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善加算合計</div><div class="amount" id="shinyashiki-total-kaizen">—</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="shinyashiki-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('shinyashiki')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="shinyashiki-const">
+      <div class="section-title">固定値（新屋敷）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>管理者単価<span class="fixed-badge">固定</span></label><input type="number" value="282000" readonly></div>
+        <div class="field"><label>常勤上位単価<span class="fixed-badge">固定</span></label><input type="number" value="252500" readonly></div>
+        <div class="field"><label>常勤一般単価<span class="fixed-badge">固定</span></label><input type="number" value="204000" readonly></div>
+        <div class="field"><label>看護師月額<span class="fixed-badge">固定</span></label><input type="number" value="224400" readonly></div>
+        <div class="field"><label>平日パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1133" readonly></div>
+        <div class="field"><label>土曜（1日=24h×1,133円）<span class="fixed-badge">固定</span></label><input type="number" value="27192" readonly></div>
+        <div class="field"><label>日祝（1日=24h×1,416円）<span class="fixed-badge">固定</span></label><input type="number" value="33984" readonly></div>
+        <div class="field"><label>法定福利費（全員）<span class="fixed-badge">固定</span></label><input value="15.5%" readonly></div>
+        <div class="field"><label>運営費率<span class="fixed-badge">固定</span></label><input value="25%" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<div class="garden-page" id="g-oeno">
+  <header><h1>大江の森保育園　委託費明細作成</h1><span class="tag">創起会 くまもと森都総合病院</span></header>
+  <nav><button class="active" onclick="showPage('oeno','input',this)">入力</button><button onclick="showPage('oeno','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="oeno-input">
+      <div class="warn-card">⚠ 法定福利費18%。運営費は固定額制（保育士数で変わる）。日祝休み</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="oeno-invno" value="2026-05-013"></div>
+        <div class="field"><label>発行日</label><input type="date" id="oeno-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="oeno-due" value="2026-05-20"></div>
+        <div class="field"><label>対象月</label><select id="oeno-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">基本情報</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>対象年</label><input type="number" id="oeno-year" value="2026"></div>
+        <div class="field"><label>平日 稼働日数</label><input type="number" id="oeno-weekdays" value="21" min="0"></div>
+        <div class="field"><label>土曜 稼働日数</label><input type="number" id="oeno-saturdays" value="4" min="0"></div>
+      </div></div>
+      <div class="section-title">人員・時間</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>常勤社員（人数）243,800円</label><input type="number" id="oeno-joshakuin" value="1" min="0"></div>
+        <div class="field"><label>常勤保育士（人数）212,000円</label><input type="number" id="oeno-hoikushi" value="4" min="0"></div>
+        <div class="field"><label>平日 常勤不足（h×1,166円）</label><input type="number" id="oeno-fusoku" value="334" step="0.5" min="0"></div>
+        <div class="field"><label>休憩交代（h×1,166円）</label><input type="number" id="oeno-kyukei" value="75" step="0.5" min="0"></div>
+        <div class="field"><label>事務員（h×1,166円）</label><input type="number" id="oeno-jimu" value="169" step="0.5" min="0"></div>
+        <div class="field"><label>調理師（h×1,166円）</label><input type="number" id="oeno-chouri" value="142.5" step="0.5" min="0"></div>
+        <div class="field"><label>延長（h×1,457円）</label><input type="number" id="oeno-enchou" value="0" step="0.1" min="0"></div>
+        <div class="field"><label>夜間配置 日数（2名×12h）</label><input type="number" id="oeno-yakan" value="0" min="0"></div>
+        <div class="field"><label>交通費（回）</label><input type="number" id="oeno-traffic" value="192" min="0"></div>
+      </div></div>
+      <div class="section-title">処遇改善加算（前月見込額）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>処遇改善Ⅰ（円）</label><input type="number" id="oeno-k1" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅱ（円）</label><input type="number" id="oeno-k2" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅲ（円）</label><input type="number" id="oeno-k3" value="0" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcOeno()">明細を作成</button></div>
+      <div id="oeno-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計</div><div class="amount" id="oeno-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善加算合計</div><div class="amount" id="oeno-total-kaizen">—</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="oeno-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('oeno')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="oeno-const">
+      <div class="section-title">固定値（大江の森）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>管理者単価<span class="fixed-badge">固定</span></label><input type="number" value="275600" readonly></div>
+        <div class="field"><label>常勤社員単価<span class="fixed-badge">固定</span></label><input type="number" value="243800" readonly></div>
+        <div class="field"><label>常勤保育士単価<span class="fixed-badge">固定</span></label><input type="number" value="212000" readonly></div>
+        <div class="field"><label>パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1166" readonly></div>
+        <div class="field"><label>法定福利費（全員）<span class="fixed-badge">固定</span></label><input value="18%" readonly></div>
+        <div class="field"><label>運営費<span class="fixed-badge">固定</span></label><input value="4名以下40万/5名50万/6名60万" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<div class="garden-page" id="g-yuki">
+  <header><h1>IQキッズゆうき園　委託費明細作成</h1><span class="tag">医療法人悠紀会 悠紀会病院</span></header>
+  <nav><button class="active" onclick="showPage('yuki','input',this)">入力</button><button onclick="showPage('yuki','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="yuki-input">
+      <div class="warn-card">⚠ 法定福利費3種混在（正規17%/パート7%/栄養士等17%）。運営費は法定費除く人件費×25%</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="yuki-invno" value="2026-05-022"></div>
+        <div class="field"><label>発行日</label><input type="date" id="yuki-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="yuki-due" value="2026-05-20"></div>
+        <div class="field"><label>対象月</label><select id="yuki-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">基本情報</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>対象年</label><input type="number" id="yuki-year" value="2026"></div>
+        <div class="field"><label>稼働日数（月〜日）</label><input type="number" id="yuki-days" value="30" min="0"></div>
+        <div class="field"><label>正社員保育士（人数）</label><input type="number" id="yuki-seisya" value="2" min="0"></div>
+      </div></div>
+      <div class="section-title">人員・時間</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>非常勤パート 述べ時間（h）</label><input type="number" id="yuki-part" value="726" step="0.5" min="0"></div>
+        <div class="field"><label>体調不良児対応（h）</label><input type="number" id="yuki-kango" value="170" step="0.5" min="0"></div>
+        <div class="field"><label>事務員（h）</label><input type="number" id="yuki-jimu" value="160" step="0.5" min="0"></div>
+        <div class="field"><label>保育補助（h）</label><input type="number" id="yuki-hojo" value="137" step="0.5" min="0"></div>
+        <div class="field"><label>栄養士・調理師（h）</label><input type="number" id="yuki-chouri" value="184" step="0.5" min="0"></div>
+        <div class="field"><label>延長保育（h）</label><input type="number" id="yuki-enchou" value="4" step="0.1" min="0"></div>
+        <div class="field"><label>追加配置（h×1,250円）</label><input type="number" id="yuki-extra" value="0" step="0.1" min="0"></div>
+        <div class="field"><label>交通費（回）</label><input type="number" id="yuki-traffic" value="171" min="0"></div>
+      </div></div>
+      <div class="section-title">処遇改善加算（前月見込額）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>処遇改善Ⅰ（円）</label><input type="number" id="yuki-k1" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅱ（円）</label><input type="number" id="yuki-k2" value="0" min="0"></div>
+        <div class="field"><label>処遇改善Ⅲ（円）</label><input type="number" id="yuki-k3" value="0" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcYuki()">明細を作成</button></div>
+      <div id="yuki-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計</div><div class="amount" id="yuki-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善加算合計</div><div class="amount" id="yuki-total-kaizen">—</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="yuki-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('yuki')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="yuki-const">
+      <div class="section-title">固定値（ゆうき）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>管理者単価<span class="fixed-badge">固定</span></label><input type="number" value="250000" readonly></div>
+        <div class="field"><label>正社員単価<span class="fixed-badge">固定</span></label><input type="number" value="210000" readonly></div>
+        <div class="field"><label>パート時給<span class="fixed-badge">固定</span></label><input type="number" value="1100" readonly></div>
+        <div class="field"><label>法定福利費（正規）<span class="fixed-badge">固定</span></label><input value="17%" readonly></div>
+        <div class="field"><label>法定福利費（パート）<span class="fixed-badge">固定</span></label><input value="7%" readonly></div>
+        <div class="field"><label>法定福利費（栄養士等）<span class="fixed-badge">固定</span></label><input value="17%" readonly></div>
+        <div class="field"><label>運営費率<span class="fixed-badge">固定</span></label><input value="法定費除く人件費×25%" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<div class="garden-page" id="g-tsugumi">
+  <header><h1>つぐみ保育園（学童）　委託費明細作成</h1><span class="tag">医療法人悠紀会 悠紀会病院</span></header>
+  <nav><button class="active" onclick="showPage('tsugumi','input',this)">入力</button><button onclick="showPage('tsugumi','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="tsugumi-input">
+      <div class="warn-card">⚠ 全額課税10%。運営費23%。稼働ベース計算。処遇改善なし。当月20日払い</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="tsugumi-invno" value="2026-05-024"></div>
+        <div class="field"><label>発行日</label><input type="date" id="tsugumi-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="tsugumi-due" value="2026-05-20"></div>
+        <div class="field"><label>対象月</label><select id="tsugumi-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">稼働情報</div>
+      <div class="card"><div class="grid-2">
+        <div class="field"><label>稼働時間合計（h）</label><input type="number" id="tsugumi-hours" value="42" step="0.5" min="0"></div>
+        <div class="field"><label>交通費用 稼働日数</label><input type="number" id="tsugumi-days" value="6" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcTsugumi()">明細を作成</button></div>
+      <div id="tsugumi-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計（税込）</div><div class="amount" id="tsugumi-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善</div><div class="amount" style="color:var(--text3);">なし（学童）</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="tsugumi-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('tsugumi')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="tsugumi-const">
+      <div class="section-title">固定値（つぐみ）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>保育士時給<span class="fixed-badge">固定</span></label><input type="number" value="1000" readonly></div>
+        <div class="field"><label>交通費単価<span class="fixed-badge">固定</span></label><input type="number" value="500" readonly></div>
+        <div class="field"><label>法定福利費<span class="fixed-badge">固定</span></label><input value="パートのみ7%" readonly></div>
+        <div class="field"><label>運営管理費率<span class="fixed-badge">固定</span></label><input value="法定費除く人件費×23%" readonly></div>
+        <div class="field"><label>消費税<span class="fixed-badge">固定</span></label><input value="全額課税10%" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<div class="garden-page" id="g-himawari">
+  <header><h1>ひまわり保育所　委託費明細作成</h1><span class="tag">独立行政法人 労働者健康安全機構 熊本労災病院</span></header>
+  <nav><button class="active" onclick="showPage('himawari','input',this)">入力</button><button onclick="showPage('himawari','const',this)">固定値</button></nav>
+  <main>
+    <div class="page active" id="himawari-input">
+      <div class="warn-card">⚠ 全額課税10%。日額単価×稼働日数のシンプル計算。延長のみ別途2,000円/h。業務完了報告書毎月必須</div>
+      <div class="section-title">請求書情報</div>
+      <div class="card"><div class="grid-4">
+        <div class="field"><label>請求書番号</label><input type="text" id="himawari-invno" value="2026-05-002"></div>
+        <div class="field"><label>発行日</label><input type="date" id="himawari-issued" value="2026-04-30"></div>
+        <div class="field"><label>支払期日</label><input type="date" id="himawari-due" value="2026-05-31"></div>
+        <div class="field"><label>対象月</label><select id="himawari-month"><option value="4" selected>4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option></select></div>
+      </div></div>
+      <div class="section-title">稼働情報・日額単価</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>稼働日数</label><input type="number" id="himawari-days" value="21" min="0"></div>
+        <div class="field"><label>延長保育（h）</label><input type="number" id="himawari-enchou" value="0" step="0.01" min="0"></div>
+        <div class="field"></div>
+        <div class="field"><label>常勤①（10.5h）日額単価</label><input type="number" id="himawari-unit1" value="20443" min="0"></div>
+        <div class="field"><label>常勤②（10.5h）日額単価</label><input type="number" id="himawari-unit2" value="20443" min="0"></div>
+        <div class="field"><label>非常勤（6h）日額単価</label><input type="number" id="himawari-unit3" value="11676" min="0"></div>
+        <div class="field"><label>調理師非常勤（6h）日額単価</label><input type="number" id="himawari-unit4" value="11466" min="0"></div>
+      </div></div>
+      <div class="btn-row"><button class="btn" onclick="calcHimawari()">明細を作成</button></div>
+      <div id="himawari-result" style="display:none;margin-top:28px;">
+        <div class="section-title">請求明細</div>
+        <div class="total-bar">
+          <div class="total-card"><div class="label">委託費合計（税込）</div><div class="amount" id="himawari-total-main">—</div></div>
+          <div class="total-card"><div class="label">処遇改善</div><div class="amount" style="color:var(--text3);">なし（認可外）</div></div>
+        </div>
+        <div class="card"><table class="meisai"><thead><tr><th>項目</th><th class="num">数量/時間</th><th class="num">単価</th><th class="num">金額</th></tr></thead><tbody id="himawari-tbody"></tbody></table></div>
+        <div class="btn-row"><button class="btn btn-green" onclick="downloadMF('himawari')">マネーフォワード用 Excelダウンロード</button></div>
+      </div>
+    </div>
+    <div class="page" id="himawari-const">
+      <div class="section-title">固定値（ひまわり）</div>
+      <div class="card"><div class="grid-3">
+        <div class="field"><label>延長単価<span class="fixed-badge">固定</span></label><input type="number" value="2000" readonly></div>
+        <div class="field"><label>消費税<span class="fixed-badge">固定</span></label><input value="全額課税10%" readonly></div>
+        <div class="field"><label>業務完了報告書<span class="fixed-badge">毎月必須</span></label><input value="毎月添付" readonly></div>
+      </div></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const fmt = n => Math.round(n).toLocaleString('ja-JP');
+const yen = n => n ? '¥'+fmt(n) : '—';
+
+// 園名・請求先マスタ
+const GARDEN_INFO = {
+  sanri:      {name:'IQキッズサンリー保育園',      client:'株式会社カリーノ'},
+  uto:        {name:'IQキッズうとティモール保育園',  client:'株式会社カリーノ'},
+  angeria:    {name:'鶴屋保育園エンジェリア',        client:'株式会社鶴屋百貨店'},
+  smylia:     {name:'鶴屋保育園スマイリア',          client:'株式会社鶴屋百貨店'},
+  kumariha:   {name:'くまりはキッズガーデン',        client:'社会医療法人社団 令和会 熊本リハビリテーション病院'},
+  shinyashiki:{name:'新屋敷キッズガーデン',          client:'社会医療法人 令和会 熊本整形外科病院'},
+  oeno:       {name:'大江の森保育園',               client:'医療法人 創起会 くまもと森都総合病院'},
+  yuki:       {name:'IQキッズゆうき園',             client:'医療法人悠紀会 悠紀会病院'},
+  tsugumi:    {name:'つぐみ保育園（学童）',          client:'医療法人悠紀会 悠紀会病院'},
+  himawari:   {name:'ひまわり保育所',               client:'独立行政法人 労働者健康安全機構 熊本労災病院'},
+};
+
+// 計算結果保存用
+const LAST = {};
+
+function switchGarden(id, btn) {
+  document.querySelectorAll('.garden-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.garden-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('g-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+function showPage(prefix, pageId, btn) {
+  const g = document.getElementById('g-'+prefix);
+  g.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  g.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById(prefix+'-'+pageId).classList.add('active');
+  btn.classList.add('active');
+}
+
+function renderMeisai(prefix, rows, totalMain, totalKaizen) {
+  document.getElementById(prefix+'-result').style.display='block';
+  document.getElementById(prefix+'-total-main').textContent = '¥'+fmt(totalMain);
+  if (document.getElementById(prefix+'-total-kaizen'))
+    document.getElementById(prefix+'-total-kaizen').textContent = totalKaizen > 0 ? '¥'+fmt(totalKaizen) : '¥0';
+  const tbody = document.getElementById(prefix+'-tbody');
+  tbody.innerHTML = '';
+  rows.forEach(([label, qty, unit, amount, rowType]) => {
+    const tr = document.createElement('tr');
+    if (rowType==='total') tr.className='total-row';
+    else if (rowType==='section') tr.className='section';
+    else if (rowType==='sub') tr.className='subtotal';
+    tr.innerHTML = `<td>${label}</td><td class="num">${qty||''}</td><td class="num">${unit?'¥'+fmt(unit):''}</td><td class="num">${amount!==null?'¥'+fmt(amount):''}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById(prefix+'-result').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// MF形式Excel出力
+function downloadMF(prefix) {
+  const d = LAST[prefix];
+  if (!d) { alert('先に明細を作成してください'); return; }
+  const info = GARDEN_INFO[prefix];
+  const invno = document.getElementById(prefix+'-invno')?.value||'';
+  const issued = document.getElementById(prefix+'-issued')?.value||'';
+  const due    = document.getElementById(prefix+'-due')?.value||'';
+  const month  = document.getElementById(prefix+'-month')?.value||'';
+  const year   = document.getElementById(prefix+'-year')?.value||'';
+
+  // MF形式：1行に明細を横並び
+  const items = d.mfItems; // [{name, qty, unit, tax}]
+  const header = ['請求書番号','請求先名称','発行日','支払期日'];
+  items.forEach((_,i)=>{ header.push(`明細名${i+1}`,`数量${i+1}`,`単価${i+1}`,`税区分${i+1}`); });
+  header.push('備考');
+
+  const row = [invno, info.client, issued, due];
+  items.forEach(item=>{ row.push(item.name, item.qty, item.unit, item.tax); });
+  row.push(`${year}年${month}月分 業務委託費`);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([header, row]);
+  ws['!cols'] = header.map(()=>({wch:22}));
+  XLSX.utils.book_append_sheet(wb, ws, 'MF取込用');
+
+  // 明細確認シート
+  const meisaiHeader = ['項目','数量/時間','単価（円）','金額（円）'];
+  const meisaiData = [meisaiHeader, ...d.meisaiRows.map(([l,q,u,a])=>[l, q||'', u||'', a!==null?a:''])];
+  const ws2 = XLSX.utils.aoa_to_sheet(meisaiData);
+  ws2['!cols'] = [{wch:35},{wch:12},{wch:12},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws2, '明細確認');
+
+  XLSX.writeFile(wb, `委託費明細_${info.name}_${year}${String(month).padStart(2,'0')}.xlsx`);
+}
+
+// ===== サンリー =====
+function calcSanri() {
+  const seisya=parseInt(document.getElementById('sanri-seisya').value)||0;
+  const weekdays=parseInt(document.getElementById('sanri-weekdays').value)||0;
+  const holidays=parseInt(document.getElementById('sanri-holidays').value)||0;
+  const jimuH=parseFloat(document.getElementById('sanri-jimu').value)||0;
+  const hojoH=parseFloat(document.getElementById('sanri-hojo').value)||0;
+  const kango=parseInt(document.getElementById('sanri-kango').value)||0;
+  const enchouH=parseFloat(document.getElementById('sanri-enchou').value)||0;
+  const traffic=parseInt(document.getElementById('sanri-traffic').value)||0;
+  const chouriH=parseFloat(document.getElementById('sanri-chouri').value)||0;
+  const k1=parseInt(document.getElementById('sanri-k1').value)||0;
+  const k2=parseInt(document.getElementById('sanri-k2').value)||0;
+  const k3=parseInt(document.getElementById('sanri-k3').value)||0;
+
+  const KANRISHA=280000,SEISYA=220000,PART=1100,ENCHOU=1375,KANGO=220000,TRAFFIC=500;
+  const WD_H=11,HD_H=24,COVER=160,FUKURI_REG=0.17,FUKURI_PART=0.07,UNEI=0.25;
+
+  const kanrishaFee=KANRISHA, seisyaFee=seisya*SEISYA, kangoFee=kango*KANGO;
+  const fukuriReg=Math.round((kanrishaFee+seisyaFee+kangoFee)*FUKURI_REG);
+  const wdPart=Math.max(0,weekdays*WD_H-seisya*COVER);
+  const hdPart=holidays*HD_H;
+  const partFee=(wdPart+hdPart)*PART;
+  const jimuFee=jimuH*PART, hojoFee=hojoH*1000, chouriF=chouriH*PART, enchouFee=enchouH*ENCHOU;
+  const partTotal=partFee+jimuFee+hojoFee+chouriF+enchouFee;
+  const fukuriPart=Math.round(partTotal*FUKURI_PART);
+  const trafficFee=traffic*TRAFFIC;
+  const jinken=kanrishaFee+seisyaFee+kangoFee+fukuriReg+partTotal+fukuriPart+trafficFee;
+  const unui=Math.round(jinken*UNEI);
+  const total=jinken+unui;
+  const kaizenTotal=k1+k2+k3;
+
+  const rows = [
+    ['管理者（1名）',1,KANRISHA,kanrishaFee,null],
+    ['正社員保育士（'+seisya+'名）',seisya,SEISYA,seisyaFee,null],
+    ['看護師（月額固定）',kango,KANGO,kangoFee,null],
+    ['法定福利費（正規17%）','','',fukuriReg,null],
+    ['保育士パート 平日不足（'+wdPart+'h）',wdPart,PART,wdPart*PART,null],
+    ['保育士パート 日祝（'+holidays+'日×24h）',hdPart,PART,hdPart*PART,null],
+    ['事務員（連携推進加算）',jimuH,PART,jimuFee,null],
+    ['保育補助加算職員',hojoH,1000,hojoFee,null],
+    ['調理師（パート）',chouriH,PART,chouriF,null],
+    ['延長・追加配置',enchouH,ENCHOU,enchouFee,null],
+    ['法定福利費（パート7%）','','',fukuriPart,null],
+    ['交通費',traffic,TRAFFIC,trafficFee,null],
+    ['人件費合計','','',jinken,'sub'],
+    ['運営費（25%）','','',unui,null],
+    ['委託費合計','','',total,'total'],
+    ['処遇改善加算','','','','section'],
+    ['処遇改善加算Ⅰ（前月確定）',1,'',k1,null],
+    ['処遇改善加算Ⅱ（前月確定）',1,'',k2,null],
+    ['処遇改善加算Ⅲ（前月確定）',1,'',k3,null],
+    ['処遇改善加算合計','','',kaizenTotal,'total'],
+  ];
+
+  LAST['sanri'] = {
+    meisaiRows: rows,
+    mfItems: buildMFItems(rows, total, kaizenTotal),
+  };
+  renderMeisai('sanri', rows, total, kaizenTotal);
+}
+
+// ===== うとシティ =====
+function calcUto() {
+  const seisya=parseInt(document.getElementById('uto-seisya').value)||0;
+  const weekdays=parseInt(document.getElementById('uto-weekdays').value)||0;
+  const holidays=parseInt(document.getElementById('uto-holidays').value)||0;
+  const jimuH=parseFloat(document.getElementById('uto-jimu').value)||0;
+  const hojoH=parseFloat(document.getElementById('uto-hojo').value)||0;
+  const chouriH=parseFloat(document.getElementById('uto-chouri').value)||0;
+  const enchouH=parseFloat(document.getElementById('uto-enchou').value)||0;
+  const traffic=parseInt(document.getElementById('uto-traffic').value)||0;
+  const k1=parseInt(document.getElementById('uto-k1').value)||0;
+  const k2=parseInt(document.getElementById('uto-k2').value)||0;
+  const k3=parseInt(document.getElementById('uto-k3').value)||0;
+
+  const SEISYA=220000,PART=1100,ENCHOU=1375,TRAFFIC=500;
+  const WD_H=11,HD_H=24,COVER=160,FUKURI_REG=0.17,FUKURI_PART=0.07,UNEI=0.25;
+
+  const seisyaFee=seisya*SEISYA;
+  const fukuriReg=Math.round(seisyaFee*FUKURI_REG);
+  const wdPart=Math.max(0,weekdays*WD_H-seisya*COVER);
+  const hdPart=holidays*HD_H;
+  const partFee=(wdPart+hdPart)*PART;
+  const jimuFee=jimuH*PART,hojoFee=hojoH*1000,chouriF=chouriH*PART,enchouFee=enchouH*ENCHOU;
+  const partTotal=partFee+jimuFee+hojoFee+chouriF+enchouFee;
+  const fukuriPart=Math.round(partTotal*FUKURI_PART);
+  const trafficFee=traffic*TRAFFIC;
+  const jinken=seisyaFee+fukuriReg+partTotal+fukuriPart+trafficFee;
+  const unui=Math.round(jinken*UNEI);
+  const total=jinken+unui;
+  const kaizenTotal=k1+k2+k3;
+
+  const rows=[
+    ['管理者（請求停止中）',0,0,0,null],
+    ['正社員保育士（'+seisya+'名）',seisya,SEISYA,seisyaFee,null],
+    ['法定福利費（正規17%）','','',fukuriReg,null],
+    ['保育士パート 平日不足（'+wdPart+'h）',wdPart,PART,wdPart*PART,null],
+    ['保育士パート 日祝（'+holidays+'日×24h）',hdPart,PART,hdPart*PART,null],
+    ['事務員（連携推進加算）',jimuH,PART,jimuFee,null],
+    ['保育補助加算職員',hojoH,1000,hojoFee,null],
+    ['調理師（パート）',chouriH,PART,chouriF,null],
+    ['延長・追加配置',enchouH,ENCHOU,enchouFee,null],
+    ['法定福利費（パート7%）','','',fukuriPart,null],
+    ['交通費',traffic,TRAFFIC,trafficFee,null],
+    ['人件費合計','','',jinken,'sub'],
+    ['運営費（25%）','','',unui,null],
+    ['委託費合計','','',total,'total'],
+    ['処遇改善加算','','','','section'],
+    ['処遇改善加算Ⅰ',1,'',k1,null],['処遇改善加算Ⅱ',1,'',k2,null],['処遇改善加算Ⅲ',1,'',k3,null],
+    ['処遇改善加算合計','','',kaizenTotal,'total'],
+  ];
+  LAST['uto']={meisaiRows:rows, mfItems:buildMFItems(rows,total,kaizenTotal)};
+  renderMeisai('uto',rows,total,kaizenTotal);
+}
+
+// ===== エンジェリア =====
+function calcAngeria() {
+  const seisya=parseInt(document.getElementById('angeria-seisya').value)||0;
+  const weekdays=parseInt(document.getElementById('angeria-weekdays').value)||0;
+  const saturdays=parseInt(document.getElementById('angeria-saturdays').value)||0;
+  const holidays=parseInt(document.getElementById('angeria-holidays').value)||0;
+  const jimuH=parseFloat(document.getElementById('angeria-jimu').value)||0;
+  const hojoH=parseFloat(document.getElementById('angeria-hojo').value)||0;
+  const shogaiH=parseFloat(document.getElementById('angeria-shogai').value)||0;
+  const enchouH=parseFloat(document.getElementById('angeria-enchou').value)||0;
+  const traffic=parseInt(document.getElementById('angeria-traffic').value)||0;
+  const chosei=parseFloat(document.getElementById('angeria-chosei').value)||0;
+  const k1=parseInt(document.getElementById('angeria-k1').value)||0;
+  const k2=parseInt(document.getElementById('angeria-k2').value)||0;
+  const k3=parseInt(document.getElementById('angeria-k3').value)||0;
+
+  const KANRISHA=280000,SEISYA=240000,PART=1200,ENCHOU=1500,SHOGAI=1500,TRAFFIC=500;
+  const WD_H=66,SAT_H=69,HD_H=28.5,COVER=160,FUKURI=0.17,UNEI=0.30;
+
+  const kanrishaFee=KANRISHA,seisyaFee=seisya*SEISYA;
+  const fukuriReg=Math.round((kanrishaFee+seisyaFee)*FUKURI);
+  const wdTotal=weekdays*WD_H+saturdays*SAT_H+holidays*HD_H;
+  const partBase=Math.max(0,wdTotal+chosei-seisya*COVER);
+  const partFee=partBase*PART;
+  const jimuFee=jimuH*PART,hojoFee=hojoH*PART,shogaiF=shogaiH*SHOGAI,enchouFee=enchouH*ENCHOU;
+  const partTotal=partFee+jimuFee+hojoFee+shogaiF+enchouFee;
+  const fukuriPart=Math.round(partTotal*FUKURI);
+  const trafficFee=traffic*TRAFFIC;
+  const jinken=kanrishaFee+seisyaFee+fukuriReg+partTotal+fukuriPart+trafficFee;
+  const unui=Math.round(jinken*UNEI);
+  const total=jinken+unui;
+  const kaizenTotal=k1+k2+k3;
+
+  const rows=[
+    ['管理者（1名）',1,KANRISHA,kanrishaFee,null],
+    ['保育士（正社員）（'+seisya+'名）',seisya,SEISYA,seisyaFee,null],
+    ['法定福利費（正規職員分）','','',fukuriReg,null],
+    ['保育士パート（配置補足分含む）（'+fmt(partBase)+'h）',partBase,PART,partFee,null],
+    ['特別支援配置・障害児加算',shogaiH,SHOGAI,shogaiF,null],
+    ['延長・追加配置',enchouH,ENCHOU,enchouFee,null],
+    ['事務員配置分',jimuH,PART,jimuFee,null],
+    ['保育補助配置分',hojoH,PART,hojoFee,null],
+    ['法定福利費（パート職員分）','','',fukuriPart,null],
+    ['交通費計',traffic,TRAFFIC,trafficFee,null],
+    ['人件費相当額','','',jinken,'sub'],
+    ['運営管理費（30%）','','',unui,null],
+    ['受託料合計','','',total,'total'],
+    ['処遇改善加算','','','','section'],
+    ['処遇改善加算 区分1',1,'',k1,null],['処遇改善加算 区分2',1,'',k2,null],['処遇改善加算 区分3',1,'',k3,null],
+    ['処遇改善加算合計','','',kaizenTotal,'total'],
+  ];
+  LAST['angeria']={meisaiRows:rows, mfItems:buildMFItems(rows,total,kaizenTotal)};
+  renderMeisai('angeria',rows,total,kaizenTotal);
+}
+
+// ===== スマイリア =====
+function calcSmylia() {
+  const seisya=parseInt(document.getElementById('smylia-seisya').value)||0;
+  const weekdays=parseInt(document.getElementById('smylia-weekdays').value)||0;
+  const holidays=parseInt(document.getElementById('smylia-holidays').value)||0;
+  const jimuH=parseFloat(document.getElementById('smylia-jimu').value)||0;
+  const enchouH=parseFloat(document.getElementById('smylia-enchou').value)||0;
+  const chosei=parseFloat(document.getElementById('smylia-chosei').value)||0;
+  const traffic=parseInt(document.getElementById('smylia-traffic').value)||0;
+  const k12=parseInt(document.getElementById('smylia-k12').value)||0;
+  const k3=parseInt(document.getElementById('smylia-k3').value)||0;
+
+  const KANRISHA=280000,SEISYA=240000,PART=1200,ENCHOU=1500,TRAFFIC=500;
+  const WD_H=66,HD_H=42,COVER=160,FUKURI=0.17,UNEI=0.30;
+
+  const kanrishaFee=KANRISHA,seisyaFee=seisya*SEISYA;
+  const fukuriReg=Math.round((kanrishaFee+seisyaFee)*FUKURI);
+  const wdTotal=weekdays*WD_H+holidays*HD_H;
+  const partBase=Math.max(0,wdTotal+chosei-seisya*COVER);
+  const partFee=partBase*PART;
+  const jimuFee=jimuH*PART,enchouFee=enchouH*ENCHOU;
+  const partTotal=partFee+jimuFee+enchouFee;
+  const fukuriPart=Math.round(partTotal*FUKURI);
+  const trafficFee=traffic*TRAFFIC;
+  const jinken=kanrishaFee+seisyaFee+fukuriReg+partTotal+fukuriPart+trafficFee;
+  const unui=Math.round(jinken*UNEI);
+  const total=jinken+unui;
+  const kaizenTotal=k12+k3;
+
+  const rows=[
+    ['管理者（1名）',1,KANRISHA,kanrishaFee,null],
+    ['保育士（正社員）（'+seisya+'名）',seisya,SEISYA,seisyaFee,null],
+    ['法定福利費（正規職員分）','','',fukuriReg,null],
+    ['保育士パート（配置補足分含む）（'+fmt(partBase)+'h）',partBase,PART,partFee,null],
+    ['延長・追加配置',enchouH,ENCHOU,enchouFee,null],
+    ['事務員配置分',jimuH,PART,jimuFee,null],
+    ['法定福利費（パート職員分）','','',fukuriPart,null],
+    ['交通費計',traffic,TRAFFIC,trafficFee,null],
+    ['人件費相当額','','',jinken,'sub'],
+    ['運営管理費（30%）','','',unui,null],
+    ['受託料合計','','',total,'total'],
+    ['処遇改善加算','','','','section'],
+    ['処遇改善加算 区分1.2',1,'',k12,null],['処遇改善加算 区分3',1,'',k3,null],
+    ['処遇改善加算合計','','',kaizenTotal,'total'],
+  ];
+  LAST['smylia']={meisaiRows:rows, mfItems:buildMFItems(rows,total,kaizenTotal)};
+  renderMeisai('smylia',rows,total,kaizenTotal);
+}
+
+// ===== くまりは =====
+function calcKumariha() {
+  const sei1=parseInt(document.getElementById('kumariha-sei1').value)||0;
+  const sei2=parseInt(document.getElementById('kumariha-sei2').value)||0;
+  const weekdays=parseInt(document.getElementById('kumariha-weekdays').value)||0;
+  const saturdays=parseInt(document.getElementById('kumariha-saturdays').value)||0;
+  const holidays=parseInt(document.getElementById('kumariha-holidays').value)||0;
+  const fusokuH=parseFloat(document.getElementById('kumariha-fusoku').value)||0;
+  const hojoH=parseFloat(document.getElementById('kumariha-hojo').value)||0;
+  const chouriH=parseFloat(document.getElementById('kumariha-chouri').value)||0;
+  const enchouH=parseFloat(document.getElementById('kumariha-enchou').value)||0;
+  const yakanDays=parseInt(document.getElementById('kumariha-yakan').value)||0;
+  const traffic=parseInt(document.getElementById('kumariha-traffic').value)||0;
+  const k1=parseInt(document.getElementById('kumariha-k1').value)||0;
+  const k2=parseInt(document.getElementById('kumariha-k2').value)||0;
+  const k3=parseInt(document.getElementById('kumariha-k3').value)||0;
+
+  const KANRISHA=296800,SEI1=265000,SEI2=212000,PART_WD=1210,PART_HD=1512,ENCHOU=1512,TRAFFIC=500;
+  const SAT_DAY=43560,HD_DAY=1512*26,YAKAN_DAY=1512*26,FUKURI=0.155,UNEI=0.25;
+
+  const kanrishaFee=KANRISHA,sei1Fee=sei1*SEI1,sei2Fee=sei2*SEI2;
+  const seisyaTotal=kanrishaFee+sei1Fee+sei2Fee;
+  const fukuriReg=Math.round(seisyaTotal*FUKURI);
+  const satFee=saturdays*SAT_DAY,hdFee=holidays*HD_DAY,yakanFee=yakanDays*YAKAN_DAY;
+  const fusokuFee=fusokuH*PART_WD,hojoFee=hojoH*PART_WD,chouriF=chouriH*PART_WD,enchouFee=enchouH*ENCHOU;
+  const partTotal=fusokuFee+satFee+hdFee+yakanFee+hojoFee+chouriF+enchouFee;
+  const fukuriPart=Math.round(partTotal*FUKURI);
+  const trafficFee=traffic*TRAFFIC;
+  const jinken=seisyaTotal+fukuriReg+partTotal+fukuriPart+trafficFee;
+  const unui=Math.round(jinken*UNUI);
+  const total=jinken+unui;
+  const kaizenTotal=k1+k2+k3;
+
+  const rows=[
+    ['管理者（1名）',1,KANRISHA,kanrishaFee,null],
+    ['保育士（常勤）',sei1,SEI1,sei1Fee,null],
+    ['保育士（常勤）',sei2,SEI2,sei2Fee,null],
+    ['法定福利費（常勤職員分）','','',fukuriReg,null],
+    ['保育士（非常勤）1日延べ36.0時間 月〜金 配置不足分',fusokuH,PART_WD,fusokuFee,null],
+    ['保育士（非常勤）1日延べ36.0時間 土曜日',saturdays+'日',SAT_DAY,satFee,null],
+    ['保育士（非常勤）1日延べ26.0時間 日曜日・祝日',holidays+'日',HD_DAY,hdFee,null],
+    ['夜間配置（非常勤）',yakanDays+'日',YAKAN_DAY,yakanFee,null],
+    ['保育補助加算職員',hojoH,PART_WD,hojoFee,null],
+    ['栄養士・調理師',chouriH,PART_WD,chouriF,null],
+    ['追加配置・延長配置',enchouH,ENCHOU,enchouFee,null],
+    ['法定福利費（パート職員分）','','',fukuriPart,null],
+    ['交通費計',traffic,TRAFFIC,trafficFee,null],
+    ['人件費合計','','',jinken,'sub'],
+    ['運営費（人件費総額の25%）',1,'',unui,null],
+    ['委託費合計','','',total,'total'],
+    ['処遇改善加算','','','','section'],
+    ['処遇改善加算Ⅰ',1,'',k1,null],['処遇改善加算Ⅱ',1,'',k2,null],['処遇改善加算Ⅲ',1,'',k3,null],
+    ['処遇改善加算合計','','',kaizenTotal,'total'],
+  ];
+  LAST['kumariha']={meisaiRows:rows,mfItems:buildMFItems(rows,total,kaizenTotal)};
+  renderMeisai('kumariha',rows,total,kaizenTotal);
+}
+
+// ===== 新屋敷 =====
+function calcShinyashiki() {
+  const sei1=parseInt(document.getElementById('shinyashiki-sei1').value)||0;
+  const sei2=parseInt(document.getElementById('shinyashiki-sei2').value)||0;
+  const jimu=parseInt(document.getElementById('shinyashiki-jimu').value)||0;
+  const kango=parseInt(document.getElementById('shinyashiki-kango').value)||0;
+  const weekdays=parseInt(document.getElementById('shinyashiki-weekdays').value)||0;
+  const saturdays=parseInt(document.getElementById('shinyashiki-saturdays').value)||0;
+  const holidays=parseInt(document.getElementById('shinyashiki-holidays').value)||0;
+  const fusokuH=parseFloat(document.getElementById('shinyashiki-fusoku').value)||0;
+  const hojoH=parseFloat(document.getElementById('shinyashiki-hojo').value)||0;
+  const chouriH=parseFloat(document.getElementById('shinyashiki-chouri').value)||0;
+  const enchouH=parseFloat(document.getElementById('shinyashiki-enchou').value)||0;
+  const yakanDays=parseInt(document.getElementById('shinyashiki-yakan').value)||0;
+  const traffic=parseInt(document.getElementById('shinyashiki-traffic').value)||0;
+  const k1=parseInt(document.getElementById('shinyashiki-k1').value)||0;
+  const k2=parseInt(document.getElementById('shinyashiki-k2').value)||0;
+  const k3=parseInt(document.getElementById('shinyashiki-k3').value)||0;
+
+  const KANRISHA=282000,SEI1=252500,SEI2=204000,JIMU=204000,KANGO=224400;
+  const PART_WD=1133,SAT_DAY=27192,HD_DAY=33984,YAKAN_DAY=33984;
+  const HOJO=1030,ENCHOU=1416,TRAFFIC=500,FUKURI=0.155,UNEI=0.25;
+
+  const kanrishaFee=KANRISHA,sei1Fee=sei1*SEI1,sei2Fee=sei2*SEI2;
+  const jimuFee=jimu*JIMU,kangoFee=kango*KANGO;
+  const seisyaTotal=kanrishaFee+sei1Fee+sei2Fee+jimuFee+kangoFee;
+  const fukuriReg=Math.round(seisyaTotal*FUKURI);
+  const fusokuFee=fusokuH*PART_WD,satFee=saturdays*SAT_DAY,hdFee=holidays*HD_DAY,yakanFee=yakanDays*YAKAN_DAY;
+  const hojoFee=hojoH*HOJO,chouriF=chouriH*PART_WD,enchouFee=enchouH*ENCHOU;
+  const partTotal=fusokuFee+satFee+hdFee+yakanFee+hojoFee+chouriF+enchouFee;
+  const fukuriPart=Math.round(partTotal*FUKURI);
+  const trafficFee=traffic*TRAFFIC;
+  const jinken=seisyaTotal+fukuriReg+partTotal+fukuriPart+trafficFee;
+  const unui=Math.round(jinken*UNUI);
+  const total=jinken+unui;
+  const kaizenTotal=k1+k2+k3;
+
+  const rows=[
+    ['管理者',1,KANRISHA,kanrishaFee,null],
+    ['保育士（常勤）',sei1,SEI1,sei1Fee,null],
+    ['保育士（常勤）',sei2,SEI2,sei2Fee,null],
+    ['事務員',jimu,JIMU,jimuFee,null],
+    ['看護師（月額固定）',kango,KANGO,kangoFee,null],
+    ['法定福利費（常勤職員分）','','',fukuriReg,null],
+    ['保育士（非常勤）1日延べ44.0時間 月〜金 配置不足分',fusokuH,PART_WD,fusokuFee,null],
+    ['保育士（非常勤）1日延べ24.0時間 土曜日',saturdays+'日',SAT_DAY,satFee,null],
+    ['保育士（非常勤）1日延べ24.0時間 日曜日・祝日',holidays+'日',HD_DAY,hdFee,null],
+    ['夜間配置（非常勤）',yakanDays+'日',YAKAN_DAY,yakanFee,null],
+    ['保育補助加算職員',hojoH,HOJO,hojoFee,null],
+    ['栄養士・調理師',chouriH,PART_WD,chouriF,null],
+    ['追加配置・延長配置',enchouH,ENCHOU,enchouFee,null],
+    ['法定福利費（パート職員分）','','',fukuriPart,null],
+    ['交通費計',traffic,TRAFFIC,trafficFee,null],
+    ['人件費合計','','',jinken,'sub'],
+    ['運営費（人件費総額の25%）',1,'',unui,null],
+    ['委託費合計','','',total,'total'],
+    ['処遇改善加算','','','','section'],
+    ['処遇改善加算Ⅰ',1,'',k1,null],['処遇改善加算Ⅱ',1,'',k2,null],['処遇改善加算Ⅲ',1,'',k3,null],
+    ['処遇改善加算合計','','',kaizenTotal,'total'],
+  ];
+  LAST['shinyashiki']={meisaiRows:rows,mfItems:buildMFItems(rows,total,kaizenTotal)};
+  renderMeisai('shinyashiki',rows,total,kaizenTotal);
+}
+
+// ===== 大江の森 =====
+function calcOeno() {
+  const joshakuin=parseInt(document.getElementById('oeno-joshakuin').value)||0;
+  const hoikushi=parseInt(document.getElementById('oeno-hoikushi').value)||0;
+  const weekdays=parseInt(document.getElementById('oeno-weekdays').value)||0;
+  const saturdays=parseInt(document.getElementById('oeno-saturdays').value)||0;
+  const fusokuH=parseFloat(document.getElementById('oeno-fusoku').value)||0;
+  const kyukeiH=parseFloat(document.getElementById('oeno-kyukei').value)||0;
+  const jimuH=parseFloat(document.getElementById('oeno-jimu').value)||0;
+  const chouriH=parseFloat(document.getElementById('oeno-chouri').value)||0;
+  const enchouH=parseFloat(document.getElementById('oeno-enchou').value)||0;
+  const yakanDays=parseInt(document.getElementById('oeno-yakan').value)||0;
+  const traffic=parseInt(document.getElementById('oeno-traffic').value)||0;
+  const k1=parseInt(document.getElementById('oeno-k1').value)||0;
+  const k2=parseInt(document.getElementById('oeno-k2').value)||0;
+  const k3=parseInt(document.getElementById('oeno-k3').value)||0;
+
+  const KANRISHA=275600,JOSHAKUIN=243800,HOIKUSHI=212000,PART=1166,ENCHOU=1457,SAT_H=32,TRAFFIC=500;
+  const YAKAN_DAY=1166*24,FUKURI=0.18;
+  const hoikushiSu=joshakuin+hoikushi;
+  const UNEI=hoikushiSu<=4?400000:hoikushiSu===5?500000:600000;
+
+  const kanrishaFee=KANRISHA,joshakuinFee=joshakuin*JOSHAKUIN,hoikushiFee=hoikushi*HOIKUSHI;
+  const seisyaTotal=kanrishaFee+joshakuinFee+hoikushiFee;
+  const fukuriReg=Math.round(seisyaTotal*FUKURI);
+  const satFee=saturdays*SAT_H*PART,fusokuFee=fusokuH*PART,kyukeiFee=kyukeiH*PART;
+  const jimuFee=jimuH*PART,chouriF=chouriH*PART,enchouFee=enchouH*ENCHOU,yakanFee=yakanDays*YAKAN_DAY;
+  const partTotal=satFee+fusokuFee+kyukeiFee+jimuFee+chouriF+enchouFee+yakanFee;
+  const fukuriPart=Math.round(partTotal*FUKURI);
+  const trafficFee=traffic*TRAFFIC;
+  const jinken=seisyaTotal+fukuriReg+partTotal+fukuriPart+trafficFee;
+  const total=jinken+UNEI;
+  const kaizenTotal=k1+k2+k3;
+
+  const rows=[
+    ['管理者',1,KANRISHA,kanrishaFee,null],
+    ['常勤社員（'+joshakuin+'名）',joshakuin,JOSHAKUIN,joshakuinFee,null],
+    ['常勤保育士（'+hoikushi+'名）',hoikushi,HOIKUSHI,hoikushiFee,null],
+    ['法定福利費（正規職員分）','','',fukuriReg,null],
+    ['保育士 月〜金 常勤での不足分',fusokuH,PART,fusokuFee,null],
+    ['保育士パート 土（'+saturdays+'日×32h）',saturdays*SAT_H,PART,satFee,null],
+    ['休憩交代要員',kyukeiH,PART,kyukeiFee,null],
+    ['延長保育',enchouH,ENCHOU,enchouFee,null],
+    ['事務員配置',jimuH,PART,jimuFee,null],
+    ['調理師（パート職員）',chouriH,PART,chouriF,null],
+    ['夜間配置',yakanDays+'日',YAKAN_DAY,yakanFee,null],
+    ['法定福利費（パート職員分）','','',fukuriPart,null],
+    ['交通費計',traffic,TRAFFIC,trafficFee,null],
+    ['人件費計','','',jinken,'sub'],
+    ['運営費（固定 指数'+hoikushiSu+'）',1,'',UNEI,null],
+    ['委託費合計','','',total,'total'],
+    ['処遇改善加算','','','','section'],
+    ['処遇改善加算Ⅰ',1,'',k1,null],['処遇改善加算Ⅱ',1,'',k2,null],['処遇改善加算Ⅲ',1,'',k3,null],
+    ['処遇改善加算合計','','',kaizenTotal,'total'],
+  ];
+  LAST['oeno']={meisaiRows:rows,mfItems:buildMFItems(rows,total,kaizenTotal)};
+  renderMeisai('oeno',rows,total,kaizenTotal);
+}
+
+// ===== ゆうき =====
+function calcYuki() {
+  const seisya=parseInt(document.getElementById('yuki-seisya').value)||0;
+  const days=parseInt(document.getElementById('yuki-days').value)||0;
+  const partH=parseFloat(document.getElementById('yuki-part').value)||0;
+  const kangoH=parseFloat(document.getElementById('yuki-kango').value)||0;
+  const jimuH=parseFloat(document.getElementById('yuki-jimu').value)||0;
+  const hojoH=parseFloat(document.getElementById('yuki-hojo').value)||0;
+  const chouriH=parseFloat(document.getElementById('yuki-chouri').value)||0;
+  const enchouH=parseFloat(document.getElementById('yuki-enchou').value)||0;
+  const extraH=parseFloat(document.getElementById('yuki-extra').value)||0;
+  const traffic=parseInt(document.getElementById('yuki-traffic').value)||0;
+  const k1=parseInt(document.getElementById('yuki-k1').value)||0;
+  const k2=parseInt(document.getElementById('yuki-k2').value)||0;
+  const k3=parseInt(document.getElementById('yuki-k3').value)||0;
+
+  const KANRISHA=250000,SEISYA=210000,PART=1100,EXTRA=1250,TRAFFIC=500;
+  const FUKURI_REG=0.17,FUKURI_PART=0.07,FUKURI_OTHER=0.17,UNEI=0.25;
+
+  const kanrishaFee=KANRISHA,seisyaFee=seisya*SEISYA;
+  const fukuriReg=Math.round((kanrishaFee+seisyaFee)*FUKURI_REG);
+  const partFee=partH*PART,kangoFee=kangoH*PART,jimuFee=jimuH*PART;
+  const hojoFee=hojoH*PART,chouriF=chouriH*PART,enchouFee=enchouH*PART,extraFee=extraH*EXTRA;
+  const trafficFee=traffic*TRAFFIC;
+  const fukuriPart=Math.round(partFee*FUKURI_PART);
+  const fukuriOther=Math.round((chouriF+kangoFee)*FUKURI_OTHER);
+  const jinken=kanrishaFee+seisyaFee+fukuriReg+partFee+kangoFee+jimuFee+hojoFee+chouriF+enchouFee+extraFee+fukuriPart+fukuriOther+trafficFee;
+  const unui=Math.round(jinken*UNUI);
+  const total=jinken+unui;
+  const kaizenTotal=k1+k2+k3;
+
+  const rows=[
+    ['管理者（正社員）',1,KANRISHA,kanrishaFee,null],
+    ['保育士（正社員）（'+seisya+'名）',seisya,SEISYA,seisyaFee,null],
+    ['法定福利費（正規職員分）','','',fukuriReg,null],
+    ['月〜日 11時間開所×2名',partH,PART,partFee,null],
+    ['正社員配置重複分差引き','','',0,null],
+    ['体調不良児対応（看護師）',kangoH,PART,kangoFee,null],
+    ['延長保育（7:30〜）2名',enchouH,PART,enchouFee,null],
+    ['追加配置',extraH,EXTRA,extraFee,null],
+    ['事務員（連携推進）',jimuH,PART,jimuFee,null],
+    ['保育補助（加算対象）',hojoH,PART,hojoFee,null],
+    ['栄養士・調理師',chouriH,PART,chouriF,null],
+    ['交通費（出勤日数）',traffic,TRAFFIC,trafficFee,null],
+    ['法定福利費（パート職員分）','','',fukuriPart,null],
+    ['法定福利費（栄養士・調理師・看護師）','','',fukuriOther,null],
+    ['人件費計','','',jinken,'sub'],
+    ['運営管理費（法定費除く人件費の25%）',1,'',unui,null],
+    ['委託費合計','','',total,'total'],
+    ['処遇改善加算','','','','section'],
+    ['処遇改善加算Ⅰ',1,'',k1,null],['処遇改善加算Ⅱ',1,'',k2,null],['処遇改善加算Ⅲ',1,'',k3,null],
+    ['処遇改善加算合計','','',kaizenTotal,'total'],
+  ];
+  LAST['yuki']={meisaiRows:rows,mfItems:buildMFItems(rows,total,kaizenTotal)};
+  renderMeisai('yuki',rows,total,kaizenTotal);
+}
+
+// ===== つぐみ =====
+function calcTsugumi() {
+  const hours=parseFloat(document.getElementById('tsugumi-hours').value)||0;
+  const days=parseInt(document.getElementById('tsugumi-days').value)||0;
+  const PART=1000,TRAFFIC=500,FUKURI=0.07,UNEI=0.23,TAX=0.10;
+  const partFee=hours*PART,trafficFee=days*TRAFFIC;
+  const jinken=partFee+trafficFee;
+  const fukuriPart=Math.round(partFee*FUKURI);
+  const unui=Math.round(partFee*UNEI);
+  const subtotal=jinken+fukuriPart+unui;
+  const tax=Math.round(subtotal*TAX);
+  const total=subtotal+tax;
+
+  const rows=[
+    ['保育士',hours,PART,partFee,null],
+    ['交通費',days,TRAFFIC,trafficFee,null],
+    ['人件費計','','',jinken,'sub'],
+    ['法定福利費（パート職員分）','','',fukuriPart,null],
+    ['運営管理費（法定費除く人件費の23%）',1,'',unui,null],
+    ['小計（税抜）','','',subtotal,'sub'],
+    ['消費税（10%）','','',tax,null],
+    ['委託費合計（税込）','','',total,'total'],
+  ];
+  LAST['tsugumi']={meisaiRows:rows,mfItems:[{name:'つぐみ保育園運営委託費',qty:1,unit:subtotal,tax:'課税10%'},{name:'消費税',qty:1,unit:tax,tax:'不課税'}]};
+  document.getElementById('tsugumi-total-main').textContent='¥'+fmt(total);
+  renderMeisai('tsugumi',rows,total,0);
+}
+
+// ===== ひまわり =====
+function calcHimawari() {
+  const days=parseInt(document.getElementById('himawari-days').value)||0;
+  const enchouH=parseFloat(document.getElementById('himawari-enchou').value)||0;
+  const unit1=parseInt(document.getElementById('himawari-unit1').value)||0;
+  const unit2=parseInt(document.getElementById('himawari-unit2').value)||0;
+  const unit3=parseInt(document.getElementById('himawari-unit3').value)||0;
+  const unit4=parseInt(document.getElementById('himawari-unit4').value)||0;
+  const ENCHOU=2000,TAX=0.10;
+  const fee1=unit1*days,fee2=unit2*days,fee3=unit3*days,fee4=unit4*days;
+  const enchouFee=Math.round(enchouH*ENCHOU);
+  const subtotal=fee1+fee2+fee3+fee4+enchouFee;
+  const tax=Math.round(subtotal*TAX);
+  const total=subtotal+tax;
+
+  const rows=[
+    ['保育士（常勤）10.5h',days,unit1,fee1,null],
+    ['保育士（常勤）10.5h',days,unit2,fee2,null],
+    ['保育士（非常勤）6h',days,unit3,fee3,null],
+    ['調理師（非常勤）6h',days,unit4,fee4,null],
+    ['延長・追加配置',enchouH,ENCHOU,enchouFee,null],
+    ['小計（税抜）','','',subtotal,'sub'],
+    ['消費税（10%）','','',tax,null],
+    ['委託費合計（税込）','','',total,'total'],
+  ];
+  LAST['himawari']={meisaiRows:rows,mfItems:[{name:'ひまわり保育所運営委託費',qty:1,unit:subtotal,tax:'課税10%'},{name:'消費税',qty:1,unit:tax,tax:'不課税'}]};
+  document.getElementById('himawari-total-main').textContent='¥'+fmt(total);
+  renderMeisai('himawari',rows,total,0);
+}
+
+// MF用明細アイテム生成（通常園）
+function buildMFItems(rows, totalMain, totalKaizen) {
+  const items = [];
+  rows.forEach(([label,,unit,amount,rowType]) => {
+    if (rowType==='total'||rowType==='section'||rowType==='sub') return;
+    if (!amount || amount===0) return;
+    items.push({name:label, qty:1, unit:amount, tax:'非課税'});
+  });
+  return items;
+}
+</script>
+</body>
+</html>
